@@ -150,18 +150,46 @@ Required keys for the "all filled" check:
 
 ## Phase 3 — Keys Interview
 
-Collect keys one at a time. Validate each (Phase 4) before moving on. Give the exact dashboard path for each.
+First, show the user this message exactly:
 
-| # | Variable | Where to find it |
-|---|----------|------------------|
-| 1 | `ANTHROPIC_API_KEY` | console.anthropic.com → Settings → API Keys → Create Key |
-| 2 | `FAL_API_KEY` | fal.ai → Dashboard → API Keys |
-| 3 | `KIE_API_KEY` | kie.ai → API Keys |
-| 4 | `SUPABASE_URL` | Supabase → Project Settings → API → Project URL (`https://xxxxx.supabase.co`) |
-| 5 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → `anon` `public` |
-| 6 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → `service_role` `secret` |
-| 7 | Supabase DB password | Set when the project was created. Forgot? Project Settings → Database → "Reset database password" |
-| 8 | Supabase Access Token (CLI auth) | Supabase → Account → Access Tokens. **Not** any of the keys above. |
+```
+Before we collect your API keys, one important note:
+
+Your keys NEVER leave your machine. They are written directly into a local
+file called .env.local — only you can see it. Nothing is stored on any server.
+
+You have two options:
+
+  A) I guide you through each key one by one (recommended)
+  B) You open the .env.local file yourself and paste all keys manually,
+     then tell me "done" when finished
+
+Which do you prefer? (A or B)
+```
+
+**If they choose B:**
+Open the file for them:
+```bash
+open app/.env.local 2>/dev/null || open -a TextEdit app/.env.local 2>/dev/null || echo "File is at: $(pwd)/app/.env.local"
+```
+Tell them to fill in every key and save, then type "done". Once they confirm, run the validation checks in Phase 4 to verify all keys are present and valid before continuing.
+
+**If they choose A (or don't answer):** collect one at a time as below.
+
+For each key, show the **direct URL** so they can open it in one click. Validate each key (Phase 4) before moving on.
+
+| # | Variable | Direct URL |
+|---|----------|------------|
+| 1 | `ANTHROPIC_API_KEY` | https://console.anthropic.com/settings/keys |
+| 2 | `FAL_API_KEY` | https://fal.ai/dashboard/keys |
+| 3 | `KIE_API_KEY` | https://kie.ai/dashboard |
+| 4 | `SUPABASE_URL` | https://supabase.com/dashboard/project/_/settings/api → "Project URL" |
+| 5 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same page → `anon` `public` key |
+| 6 | `SUPABASE_SERVICE_ROLE_KEY` | same page → `service_role` `secret` key |
+| 7 | Supabase DB password | Set at project creation. Forgot? → https://supabase.com/dashboard/project/_/settings/database → "Reset database password" |
+| 8 | Supabase Access Token (CLI auth) | https://supabase.com/dashboard/account/tokens → "Generate new token" — **this is NOT any of the keys above** |
+
+For keys 4–7: tell the user to replace `_` in the URL with their actual project ref (the part before `.supabase.co` in their project URL).
 
 Auto-derive the project ref: extract `xxxxx` from `https://xxxxx.supabase.co`. Don't ask. Store it as `PROJECT_REF` — Phase 5 binds the license to it.
 
@@ -284,6 +312,34 @@ Doubles as the "already activated" hint:
 printf 'TrenchOS — licensed install.\nThis copy is tied to Supabase project %s and traceable to your purchase.\nSingle user. Redistribution prohibited.\n' "$PROJECT_REF" > LICENSE
 ```
 
+### 5.6d — Create the Owner account
+
+Do this BEFORE starting the server. Ask the user:
+
+```
+Almost there! Let's set up your Owner account for TrenchOS.
+
+  Email address you want to use:
+  Password (min. 8 characters):
+```
+
+Store as `OWNER_EMAIL` and `OWNER_PASSWORD`. Then create the account via Supabase Admin API (email pre-confirmed — no inbox needed):
+
+```bash
+curl -sS -X POST "$SUPABASE_URL/auth/v1/admin/users" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$OWNER_EMAIL\",\"password\":\"$OWNER_PASSWORD\",\"email_confirm\":true}"
+```
+
+Parse the response:
+- Contains `id` → account created. Continue.
+- `User already registered` → account already exists with this email. Ask if they want to use a different email or continue (account will still become owner on first login).
+- Other error → show the response and re-prompt.
+
+The first user to log in automatically becomes Owner — no extra setup needed.
+
 ### 5.7 — Start the dev server
 ```bash
 npm run dev &
@@ -292,22 +348,21 @@ Background it, capture the PID. Poll `curl http://localhost:3000` for up to 30s 
 
 ---
 
-## Phase 6 — Sign Up
+## Phase 6 — First Login
 
 ```
-✅ TrenchOS is running on http://localhost:3000
+✅ TrenchOS is running!
 
-One manual step:
+Open this in your browser: http://localhost:3000
 
-  1. Open http://localhost:3000 in your browser
-  2. Click "First time? Create your account" at the bottom of the login page
-  3. Sign up with your email and password
-     → You'll automatically become the Owner of this install
+Log in with:
+  Email:    [OWNER_EMAIL]
+  Password: [OWNER_PASSWORD]
 
-Type "done" when you've signed up.
+You're already the Owner — no sign-up needed.
 ```
 
-Wait for confirmation before continuing.
+Wait for the user to confirm they're logged in before continuing.
 
 ---
 
