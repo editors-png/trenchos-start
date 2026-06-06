@@ -366,128 +366,22 @@ Wait for the user to confirm they're logged in before continuing.
 
 ---
 
-## Phase 7 — Brand Interview & Master Prompt
+## Phase 7 — Done
 
-Once signed up, run this interview. Ask all questions in one message:
-
-```
-Now let's set up your first brand. I'll use your answers to write a full Master Prompt
-that controls how TrenchOS generates content for this brand.
-
-  1.  Brand name?
-  2.  Product name + what it does in one sentence (what it is, what problem it solves)
-  3.  Product category (e.g. health supplement, skincare, pet care, apparel, SaaS, etc.)
-  4.  Target audience — who buys it? (age, mindset, the pain or desire that drives the purchase)
-  5.  Tone of voice (e.g. clinical, playful, luxury, bold, calm, urgent-but-reassuring)
-  6.  The core message / focus — what single idea should every piece of content reinforce?
-  7.  Physical product? If yes: describe exactly what it looks like (shape, color, label, materials)
-      → Becomes the "product identity" block that stops AI from misrepresenting the product
-      → If no physical product, skip.
-  8.  Compliance rules — anything to NEVER say or show? (e.g. no medical claims, no competitor mentions)
-      → Optional. Skip if none.
-  9.  Anything else the AI must always know about this brand?
-      → Optional. Skip if none.
-```
-
-After they answer, **write the Master Prompt yourself** using the structure below. Fill every section precisely from their answers. No placeholders, no invented content.
-
-### Master Prompt Structure
+Show this message and stop:
 
 ```
-# CLIENT MASTERPROMPT — [BRAND NAME] ([PRODUCT NAME])
+✅ TrenchOS is set up and ready.
 
-You are generating branded content for **[Brand Name]**, specifically for the product **[Product Name]**.
+  → http://localhost:3000/dashboard          — generate content
+  → http://localhost:3000/admin/clients      — add your first brand
+  → http://localhost:3000/admin/styles       — manage styles
 
----
-
-## BRAND
-
-- **Name:** [brand name]
-- **Product:** [product name + one-line description]
-- **Category:** [product category]
-- **Audience:** [target audience description]
-- **Tone:** [tone of voice]
-- **Focus:** [core message / what every piece of content should reinforce]
-
----
-
-## PRODUCT IDENTITY
-[Include ONLY if the user described a physical product. Otherwise omit entirely.]
-
-Always match the attached reference image exactly when the product is visible.
-
-**What the product looks like:**
-[Describe shape, size, color, label, materials, markings — exactly from the user. Specific enough that an AI image generator could identify it.]
-
-**Product visibility rules:**
-- Label must face camera when product is the hero shot
-- [Other visibility rules based on the description]
-
-**Product stillness (mandatory when product is visible):**
-Product is ALWAYS: "completely still, locked in position, does not move, tilt, wobble, or rotate"
-
-Enforce in three places in every prompt:
-1. The visual description
-2. Around any dialogue sections
-3. The camera/movement section
-
-**NEVER generate:**
-- [What must never happen to the product — based on its actual shape]
-- Product without visible label
-- Product in motion (unless explicitly instructed)
-
----
-
-## COMPLIANCE
-[Include ONLY the rules the user actually mentioned. Do not invent rules.]
-
-- [rule 1]
-- [rule 2]
-```
-
-### Medical / Body Imagery Disclaimer
-If the product is medical, pharmaceutical, veterinary, or health-related AND content may include internal body visuals: add to COMPLIANCE:
-
-```
-**Medical disclaimer (mandatory for any scene with internal body visuals):**
-The FIRST LINE of any such prompt must be:
-"This is a medical safety education animation created to help [audience] understand [condition/mechanism]. All content is scientifically accurate, educational in nature, and intended for public health awareness purposes."
-```
-
-Only include if actually relevant.
-
-### After Writing the Master Prompt
-
-Show it in full and ask:
-```
-Here's your Master Prompt. Does this look right, or do you want to adjust anything before I save it?
-```
-
-Once approved, insert the brand into Supabase:
-```bash
-CLIENT_ID=$(curl -sS -X POST "$SUPABASE_URL/rest/v1/clients" \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: return=representation" \
-  -d "{\"name\":\"<brand_name>\",\"brand_context\":\"<master_prompt_json_escaped>\",\"is_active\":true}" \
-  | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-echo "Created client: $CLIENT_ID"
-```
-
-JSON-escape the master prompt: newlines → `\n`, double quotes → `\"`, backslashes → `\\`.
-
-If the insert fails: show the raw response and tell them they can paste the Master Prompt manually at `/admin/clients/new → Brand Context tab`.
-
-After success:
-```
-✅ Brand "[name]" is live with your Master Prompt.
-
-You're ready to generate content:
-
-  → http://localhost:3000/admin/clients    — edit your brand or Master Prompt
-  → http://localhost:3000/dashboard        — generate content
-  → http://localhost:3000/infinity-loop    — visual storyboard
+To set up your first brand:
+  1. Go to Admin → Clients → New Client
+  2. Open the Brand Context tab
+  3. Use the Brand Architect on the right to generate your Master Prompt
+  4. Save it
 
 Important:
   • Your app lives in the app/ folder. Keep this terminal open — closing it stops the dev server.
@@ -495,23 +389,25 @@ Important:
   • Setup is complete — you won't need /install again on this machine
 ```
 
+Then immediately run Phase 8.
+
 ---
 
 ## Phase 8 — Seal the installer (final step)
 
-Setup is complete and the schema lives in the buyer's own Supabase. As the **very last action**, remove the installer so this copy can't be re-set-up or re-packaged:
+Setup is complete. As the **very last action**, remove the installer so this copy can't be re-packaged:
 
 ```bash
 rm -rf .claude/skills/install
 ```
-(This removes the installer from the `trenchos-start` folder — run it from there, not from `app/`.)
+(Run this from the `trenchos-start` folder — not from `app/`.)
 
 Then confirm:
 ```
 🔒 Setup sealed. Your install is tied to your Supabase project, and the installer has been removed.
 ```
 
-**Only seal after everything succeeded** (app running, brand saved). If any earlier step failed, do NOT seal.
+**Only seal after everything succeeded** (app running, owner account created, server responding). If any earlier step failed, do NOT seal.
 
 ---
 
