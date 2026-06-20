@@ -27,7 +27,7 @@ LICENSE_SERVER="https://jkqmztxlobxbgwdoqpzh.supabase.co/functions/v1"
 2. **Fail loudly, recover gracefully.** When a step fails, stop, explain *what* failed in plain language, and give a concrete next step. Never silently swallow errors.
 3. **Validate before writing.** Test each API key against its provider *before* writing `.env.local`.
 4. **Never improvise on credentials.** If the user can't find a key, point them to the exact dashboard path.
-5. **macOS and Linux only for v1.** On Windows, stop and tell the user to install WSL2.
+5. **Cross-platform.** This installer runs natively on Windows, macOS, and Linux. All platform-fragile steps (license-server calls, key validation, owner creation, file cleanup) go through bundled Node scripts (`scripts/*.mjs` here, plus `app/scripts/*.mjs` after the clone) — never raw `openssl`, `curl`, `printf`, `export`, `open`, or `rm`. The only prerequisites are **Node ≥ 18.17 and Git**. Do not gate on the operating system, and never tell the user to install WSL.
 
 ---
 
@@ -80,14 +80,11 @@ Store the answer as `LICENSE_KEY` (trim whitespace).
 
 ### Step 2 — Validate the key against the license server
 
+Run from the `trenchos-start` folder (cross-platform Node, no curl):
 ```bash
-RESP=$(curl -sS -X POST "$LICENSE_SERVER/validate-key" \
-  -H "Content-Type: application/json" \
-  -d "{\"key\":\"$LICENSE_KEY\"}")
-echo "$RESP"
+node scripts/license.mjs validate "<LICENSE_KEY>"
 ```
-
-Parse the JSON response:
+It prints the raw JSON response from the license server. Parse the JSON response:
 - `valid: true` → extract `github_token` and `github_token_expires_at`. Keep them in the skill session (never write them to disk). Continue.
 - `valid: false`, `reason: "invalid"` → wrong/unknown key. Re-ask **once**. If still bad, stop: tell them to copy the key exactly from the purchase email.
 - `valid: false`, `reason: "revoked"` → stop. Tell them this license has been revoked and to contact support.
@@ -123,13 +120,13 @@ Once cloned, **everything from here happens inside `app/`.** All paths below are
 node --version       # Need ≥ 18.17
 git --version        # Need any recent version
 npx --version        # Comes with npm, sanity check
-uname -s             # darwin | linux | other (Windows → stop)
 ```
 
-Do **not** install Supabase CLI globally — we use `npx supabase`.
+Do **not** install Supabase CLI globally — we use `npx supabase`. Only **two** prerequisites are required, and both are cross-platform: Node and Git.
 
-- Node too old → install Node LTS from https://nodejs.org and restart this skill.
-- Windows (MSYS / CYGWIN / MINGW) → stop. "TrenchOS v1 needs macOS or Linux. On Windows, install WSL2 with Ubuntu and re-run /install from inside the Ubuntu terminal."
+- Node missing or too old → install Node LTS, then restart this skill. **Windows:** https://nodejs.org LTS installer (or `winget install OpenJS.NodeJS.LTS`). **macOS:** https://nodejs.org or `brew install node`. **Linux:** distro package manager or https://nodejs.org.
+- Git missing → **Windows:** https://git-scm.com/download/win · **macOS:** `xcode-select --install` · **Linux:** distro package manager.
+- **No OS gate.** This installer runs natively on Windows (PowerShell or cmd), macOS, and Linux. Do not stop on Windows and do not mention WSL.
 
 ---
 
@@ -168,11 +165,11 @@ Which do you prefer? (A or B)
 ```
 
 **If they choose B:**
-Open the file for them:
+Open the file for them, cross-platform (Windows `start`, macOS `open`, Linux `xdg-open`):
 ```bash
-open app/.env.local 2>/dev/null || open -a TextEdit app/.env.local 2>/dev/null || echo "File is at: $(pwd)/app/.env.local"
+node -e "const p='app/.env.local',{execSync}=require('child_process'),c=process.platform==='win32'?'start \"\" \"'+p+'\"':process.platform==='darwin'?'open \"'+p+'\"':'xdg-open \"'+p+'\"';try{execSync(c)}catch{console.log('Open this file manually: '+require('path').resolve(p))}"
 ```
-Tell them to fill in every key and save, then type "done". Once they confirm, run the validation checks in Phase 4 to verify all keys are present and valid before continuing.
+(If it doesn't pop open, just tell them the full path printed and have them open it in any text editor.) Tell them to fill in every key and save, then type "done". Once they confirm, run the validation checks in Phase 4 to verify all keys are present and valid before continuing.
 
 **If they choose A (or don't answer):** collect one at a time as below.
 
@@ -199,40 +196,21 @@ Auto-derive the project ref: extract `xxxxx` from `https://xxxxx.supabase.co`. D
 
 ## Phase 4 — Key Validation (BEFORE writing .env.local)
 
-Test each key with a minimal API call. On failure, surface the actual error and re-prompt for that single key.
+Validate all keys at once with the bundled Node script that ships inside the cloned app (built-in `fetch`, works on every OS — no curl, no shell-quoting on Windows). Run from inside `app/`, passing the keys as environment variables:
 
-### Anthropic
 ```bash
-curl -sS -o /dev/null -w "%{http_code}" https://api.anthropic.com/v1/messages \
-  -H "x-api-key: $ANTHROPIC_API_KEY" \
-  -H "anthropic-version: 2023-06-01" \
-  -H "content-type: application/json" \
-  -d '{"model":"claude-haiku-4-5-20251001","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}'
+ANTHROPIC_API_KEY="<key>" FAL_API_KEY="<key>" KIE_API_KEY="<key>" \
+SUPABASE_URL="<url>" NEXT_PUBLIC_SUPABASE_ANON_KEY="<anon>" \
+node scripts/preflight.mjs
 ```
-Expect `200`. `401` → invalid. `400` → likely fine (model availability), continue. Other → show body.
 
-### FAL
-```bash
-curl -sS -o /dev/null -w "%{http_code}" https://queue.fal.run/health \
-  -H "Authorization: Key $FAL_API_KEY"
-```
-Expect `200`/`204`. `401`/`403` → invalid.
+> Windows PowerShell doesn't support the inline `VAR=value cmd` form — set each with `$env:ANTHROPIC_API_KEY="<key>"` first, then run `node scripts/preflight.mjs`. The Bash tool on macOS/Linux accepts the inline form directly.
 
-### KIE
-```bash
-curl -sS -o /dev/null -w "%{http_code}" "https://api.kie.ai/api/v1/chat/credit" \
-  -H "Authorization: Bearer $KIE_API_KEY"
-```
-Expect `200`. `401` → invalid.
+It prints one line per key — `PASS`, `FAIL <http_code>`, or `SKIP` — and exits `0` only if every checked key passed. Codes: Anthropic `PASS` on 200/400, `FAIL 401` = invalid; FAL/KIE `PASS` on 200, `FAIL 401`/`403` = invalid; Supabase `FAIL 401` = wrong anon key, `FAIL 404` = wrong URL.
 
-### Supabase REST (validates URL + anon key)
-```bash
-curl -sS -o /dev/null -w "%{http_code}" "$SUPABASE_URL/rest/v1/" \
-  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY"
-```
-Expect `200`. `401` → wrong anon key. `404` → wrong URL.
+On any `FAIL`: tell the user exactly which key failed and why (the HTTP code), have them re-paste that single key, and re-run. Don't accept a bad key.
 
-On any failure: tell the user exactly which key failed and why (HTTP code), re-paste. Don't accept a bad key.
+> If `scripts/preflight.mjs` is somehow missing from the clone, fall back to validating each key by hand, but a correctly cloned app always has it.
 
 ---
 
@@ -241,9 +219,11 @@ On any failure: tell the user exactly which key failed and why (HTTP code), re-p
 Once all keys validate, run in order. Confirm success before each next step. On failure, **stop and report**.
 
 ### 5.1 — Generate the encryption key
+Cross-platform, via Node (no `openssl`):
 ```bash
-ENCRYPTION_KEY=$(openssl rand -hex 32)
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+Capture the 64-character hex output as `ENCRYPTION_KEY`.
 
 ### 5.2 — Write `app/.env.local`
 
@@ -264,10 +244,11 @@ npm install
 1–3 minutes. On `EACCES`/`EEXIST`: delete `node_modules/` and retry.
 
 ### 5.4 — Authenticate Supabase CLI
+Use the non-interactive `--token` flag — cross-platform, no `export` (which doesn't exist on Windows shells):
 ```bash
-export SUPABASE_ACCESS_TOKEN=<access token from Phase 3>
+npx supabase login --token <access token from Phase 3>
 ```
-Don't write this to `.env.local` — session env only.
+Don't write this token to `.env.local` — it's CLI auth only.
 
 ### 5.5 — Link to the project
 ```bash
@@ -293,23 +274,22 @@ Watch for:
 
 This is what makes the license useless in a leaked copy. Call `bind-key` with the project ref derived in Phase 3:
 
+Run from inside `app/` — the bootstrap script sits one level up (cross-platform Node, no curl):
 ```bash
-BIND=$(curl -sS -X POST "$LICENSE_SERVER/bind-key" \
-  -H "Content-Type: application/json" \
-  -d "{\"key\":\"$LICENSE_KEY\",\"project_ref\":\"$PROJECT_REF\"}")
-echo "$BIND"
+node ../scripts/license.mjs bind "<LICENSE_KEY>" "<PROJECT_REF>"
 ```
-
-Parse:
+It prints the raw JSON response. Parse:
 - `bound: true` → continue.
 - `bound: false`, `reason: "bound_to_other_project"` → this license is already tied to a *different* Supabase project and that one is still active. Stop. Tell the user: a license works with one Supabase project at a time. If they genuinely moved projects, the old one auto-releases after 14 idle days, or they can contact support.
 - `bound: false`, `reason: "revoked"` → stop, license revoked, contact support.
 
 ### 5.6c — Stamp the LICENSE marker
 
-Doubles as the "already activated" hint:
-```bash
-printf 'TrenchOS — licensed install.\nThis copy is tied to Supabase project %s and traceable to your purchase.\nSingle user. Redistribution prohibited.\n' "$PROJECT_REF" > LICENSE
+Doubles as the "already activated" hint. Use the **Write tool** to create `app/LICENSE` with exactly this content (substitute the real project ref):
+```
+TrenchOS — licensed install.
+This copy is tied to Supabase project <PROJECT_REF> and traceable to your purchase.
+Single user. Redistribution prohibited.
 ```
 
 ### 5.6d — Create the Owner account
@@ -323,28 +303,26 @@ Almost there! Let's set up your Owner account for TrenchOS.
   Password (min. 8 characters):
 ```
 
-Store as `OWNER_EMAIL` and `OWNER_PASSWORD`. Then create the account via Supabase Admin API (email pre-confirmed — no inbox needed):
+Store as `OWNER_EMAIL` and `OWNER_PASSWORD`. Then create the account via the bundled Node script (Supabase Admin API, email pre-confirmed — no inbox needed, no curl). Run from inside `app/`, passing the Supabase creds as env vars:
 
 ```bash
-curl -sS -X POST "$SUPABASE_URL/auth/v1/admin/users" \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"$OWNER_EMAIL\",\"password\":\"$OWNER_PASSWORD\",\"email_confirm\":true}"
+SUPABASE_URL="<url>" SUPABASE_SERVICE_ROLE_KEY="<service_key>" \
+node ../scripts/create-owner.mjs "<email>" "<password>"
 ```
+(Windows PowerShell: set `$env:SUPABASE_URL` / `$env:SUPABASE_SERVICE_ROLE_KEY` first, then run the `node` line.)
 
-Parse the response:
-- Contains `id` → account created. Continue.
-- `User already registered` → account already exists with this email. Ask if they want to use a different email or continue (account will still become owner on first login).
-- Other error → show the response and re-prompt.
+Read the output:
+- `CREATED …` (exit 0) → account created. Continue.
+- `EXISTS …` (exit 0) → an account with this email already exists; it will still become Owner on first login. Continue (or offer a different email).
+- `ERROR …` (exit 1) → show the message and re-prompt.
 
 The first user to log in automatically becomes Owner — no extra setup needed.
 
 ### 5.7 — Start the dev server
 ```bash
-npm run dev &
+npm run dev
 ```
-Background it, capture the PID. Poll `curl http://localhost:3000` for up to 30s until `200` (or "Ready"/"Local:" in the log). If port 3000 is busy, Next.js uses 3001 — read the actual port from the output.
+Start it with the Bash tool's **`run_in_background` option** (do not append `&` — that is shell-specific and fails on Windows). Poll for up to 30s until the app responds — check the dev server log for "Ready" / "Local:", or test with `node -e "fetch('http://localhost:3000').then(()=>console.log('UP')).catch(()=>console.log('DOWN'))"`. If port 3000 is busy, Next.js uses 3001 — read the actual port from the output.
 
 ---
 
@@ -395,10 +373,10 @@ Then immediately run Phase 8.
 
 ## Phase 8 — Seal the installer (final step)
 
-Setup is complete. As the **very last action**, remove the installer so this copy can't be re-packaged:
+Setup is complete. As the **very last action**, remove the installer so this copy can't be re-packaged. Cross-platform via Node (no `rm -rf`):
 
 ```bash
-rm -rf .claude/skills/install
+node -e "require('fs').rmSync('.claude/skills/install',{recursive:true,force:true})"
 ```
 (Run this from the `trenchos-start` folder — not from `app/`.)
 
