@@ -117,10 +117,13 @@ Once cloned, **everything from here happens inside `app/`.** All paths below are
 ## Phase 1 — Environment Probe
 
 ```bash
-node --version       # Need ≥ 18.17
-git --version        # Need any recent version
-npx --version        # Comes with npm, sanity check
+node --version              # Need ≥ 18.17
+git --version               # Need any recent version
+npx --version               # Comes with npm, sanity check
+npx --yes supabase --version  # Fetches the Supabase CLI binary — proves it runs on THIS machine NOW
 ```
+
+Run all four **up front**, before collecting any keys. The last one is the important one: it downloads and runs the Supabase CLI binary for this OS. If it fails here (network, permissions, unsupported arch), we find out in the first 30 seconds — not after the user has entered eight API keys. If `npx supabase --version` errors, stop and show the exact error before going further.
 
 Do **not** install Supabase CLI globally — we use `npx supabase`. Only **two** prerequisites are required, and both are cross-platform: Node and Git.
 
@@ -165,11 +168,11 @@ Which do you prefer? (A or B)
 ```
 
 **If they choose B:**
-Open the file for them, cross-platform (Windows `start`, macOS `open`, Linux `xdg-open`):
+Print the absolute path (robust, no nested quotes — works in every shell):
 ```bash
-node -e "const p='app/.env.local',{execSync}=require('child_process'),c=process.platform==='win32'?'start \"\" \"'+p+'\"':process.platform==='darwin'?'open \"'+p+'\"':'xdg-open \"'+p+'\"';try{execSync(c)}catch{console.log('Open this file manually: '+require('path').resolve(p))}"
+node -e "console.log(require('path').resolve('app/.env.local'))"
 ```
-(If it doesn't pop open, just tell them the full path printed and have them open it in any text editor.) Tell them to fill in every key and save, then type "done". Once they confirm, run the validation checks in Phase 4 to verify all keys are present and valid before continuing.
+Then tell the user: "Open that file in any text editor (on Windows: right-click → Open with → Notepad), fill in every key, save, and type 'done'." Do **not** try to auto-launch an editor — printing the path and letting them open it is more reliable across machines. Once they confirm, run the validation checks in Phase 4 to verify all keys are present and valid before continuing.
 
 **If they choose A (or don't answer):** collect one at a time as below.
 
