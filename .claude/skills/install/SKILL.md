@@ -45,12 +45,13 @@ Before we start, please confirm these prerequisites:
   3. ☐  Generated a Supabase Access Token (separate from project keys!)
         → Account icon (top right) → Account → Access Tokens → Generate new token
   4. ☐  Have API credits / billing set up at Anthropic, FAL, and KIE
-  5. ☐  Have your License Key ready (from your purchase email, "TRENCHOS-…")
+  5. ☐  Have a Google account for a free Gemini API key (aistudio.google.com)
+  6. ☐  Have your License Key ready (from your purchase email, "TRENCHOS-…")
 
-Reply "yes" when all 5 are done.
+Reply "yes" when all 6 are done.
 ```
 
-If they say anything other than yes/done/ready, ask what's blocking and help only on that blocker. Don't continue until all five are confirmed.
+If they say anything other than yes/done/ready, ask what's blocking and help only on that blocker. Don't continue until all six are confirmed.
 
 ---
 
@@ -123,7 +124,7 @@ npx --version               # Comes with npm, sanity check
 npx --yes supabase --version  # Fetches the Supabase CLI binary — proves it runs on THIS machine NOW
 ```
 
-Run all four **up front**, before collecting any keys. The last one is the important one: it downloads and runs the Supabase CLI binary for this OS. If it fails here (network, permissions, unsupported arch), we find out in the first 30 seconds — not after the user has entered eight API keys. If `npx supabase --version` errors, stop and show the exact error before going further.
+Run all four **up front**, before collecting any keys. The last one is the important one: it downloads and runs the Supabase CLI binary for this OS. If it fails here (network, permissions, unsupported arch), we find out in the first 30 seconds — not after the user has entered nine API keys. If `npx supabase --version` errors, stop and show the exact error before going further.
 
 Do **not** install Supabase CLI globally — we use `npx supabase`. Only **two** prerequisites are required, and both are cross-platform: Node and Git.
 
@@ -139,12 +140,12 @@ Working inside `app/`:
 
 | Check | If true |
 |-------|---------|
-| `app/.env.local` exists with all 8 required keys filled | Ask: "I found an existing `.env.local`. Re-use it (recommended) or start fresh?" |
+| `app/.env.local` exists with all 9 required keys filled | Ask: "I found an existing `.env.local`. Re-use it (recommended) or start fresh?" |
 | `app/node_modules/` exists | Skip `npm install` in Phase 5 |
 | Migrations already pushed (`npx supabase migration list --linked` once linked) | Skip `db push` in Phase 5 |
 
 Required keys for the "all filled" check:
-`ANTHROPIC_API_KEY`, `FAL_API_KEY`, `KIE_API_KEY`, `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`
+`ANTHROPIC_API_KEY`, `FAL_API_KEY`, `KIE_API_KEY`, `GEMINI_API_KEY`, `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`
 
 ---
 
@@ -183,13 +184,14 @@ For each key, show the **direct URL** so they can open it in one click. Validate
 | 1 | `ANTHROPIC_API_KEY` | https://console.anthropic.com/settings/keys |
 | 2 | `FAL_API_KEY` | https://fal.ai/dashboard/keys |
 | 3 | `KIE_API_KEY` | https://kie.ai/dashboard |
-| 4 | `SUPABASE_URL` | https://supabase.com/dashboard/project/_/settings/api → "Project URL" |
-| 5 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same page → `anon` `public` key |
-| 6 | `SUPABASE_SERVICE_ROLE_KEY` | same page → `service_role` `secret` key |
-| 7 | Supabase DB password | Set at project creation. Forgot? → https://supabase.com/dashboard/project/_/settings/database → "Reset database password" |
-| 8 | Supabase Access Token (CLI auth) | https://supabase.com/dashboard/account/tokens → "Generate new token" — **this is NOT any of the keys above** |
+| 4 | `GEMINI_API_KEY` | https://aistudio.google.com/apikey (Google AI Studio → "Get API key" — free tier exists). Required: powers the video-feedback analysis (Creative DNA); without it the loop runs blind. |
+| 5 | `SUPABASE_URL` | https://supabase.com/dashboard/project/_/settings/api → "Project URL" |
+| 6 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same page → `anon` `public` key |
+| 7 | `SUPABASE_SERVICE_ROLE_KEY` | same page → `service_role` `secret` key |
+| 8 | Supabase DB password | Set at project creation. Forgot? → https://supabase.com/dashboard/project/_/settings/database → "Reset database password" |
+| 9 | Supabase Access Token (CLI auth) | https://supabase.com/dashboard/account/tokens → "Generate new token" — **this is NOT any of the keys above** |
 
-For keys 4–7: tell the user to replace `_` in the URL with their actual project ref (the part before `.supabase.co` in their project URL).
+For keys 5–8: tell the user to replace `_` in the URL with their actual project ref (the part before `.supabase.co` in their project URL).
 
 Auto-derive the project ref: extract `xxxxx` from `https://xxxxx.supabase.co`. Don't ask. Store it as `PROJECT_REF` — Phase 5 binds the license to it.
 
@@ -203,13 +205,14 @@ Validate all keys at once with the bundled Node script that ships inside the clo
 
 ```bash
 ANTHROPIC_API_KEY="<key>" FAL_API_KEY="<key>" KIE_API_KEY="<key>" \
+GEMINI_API_KEY="<key>" \
 SUPABASE_URL="<url>" NEXT_PUBLIC_SUPABASE_ANON_KEY="<anon>" \
 node scripts/preflight.mjs
 ```
 
 > Windows PowerShell doesn't support the inline `VAR=value cmd` form — set each with `$env:ANTHROPIC_API_KEY="<key>"` first, then run `node scripts/preflight.mjs`. The Bash tool on macOS/Linux accepts the inline form directly.
 
-It prints one line per key — `PASS`, `FAIL <http_code>`, or `SKIP` — and exits `0` only if every checked key passed. Codes: Anthropic `PASS` on 200/400, `FAIL 401` = invalid; FAL/KIE `PASS` on 200, `FAIL 401`/`403` = invalid; Supabase `FAIL 401` = wrong anon key, `FAIL 404` = wrong URL.
+It prints one line per key — `PASS`, `FAIL <http_code>`, or `SKIP` — and exits `0` only if every checked key passed. Codes: Anthropic `PASS` on 200/400, `FAIL 401` = invalid; FAL/KIE/Gemini `PASS` on 200, `FAIL 400`/`401`/`403` = invalid; Supabase `FAIL 401` = wrong anon key, `FAIL 404` = wrong URL.
 
 On any `FAIL`: tell the user exactly which key failed and why (the HTTP code), have them re-paste that single key, and re-run. Don't accept a bad key.
 
@@ -230,7 +233,7 @@ Capture the 64-character hex output as `ENCRYPTION_KEY`.
 
 ### 5.2 — Write `app/.env.local`
 
-Write at the app root with all 8 keys + `ENCRYPTION_KEY` + the license fields. Use `.env.example` as the template. `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_URL` must be identical.
+Write at the app root with all 9 keys + `ENCRYPTION_KEY` + the license fields. Use `.env.example` as the template. `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_URL` must be identical.
 
 Include the license fields so the runtime kill-switch can phone home:
 ```
