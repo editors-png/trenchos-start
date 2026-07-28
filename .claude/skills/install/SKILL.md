@@ -46,6 +46,9 @@ Before we start, please confirm these prerequisites:
         → Account icon (top right) → Account → Access Tokens → Generate new token
   4. ☐  Raised the Supabase upload file size limit to 2 GB
         → Storage → Settings → "Upload file size limit" → set 2 GB → Save
+        (2 GB needs the Supabase Pro plan. On the Free plan set the maximum
+        50 MB - everything works except Copy Format / Creative DNA video
+        uploads over 50 MB, which need the upgrade.)
   5. ☐  Have API credits / billing set up at Anthropic, FAL, and KIE
   6. ☐  Have a Google account for a free Gemini API key (aistudio.google.com)
   7. ☐  Have your License Key ready (from your purchase email, "TRENCHOS-…")
