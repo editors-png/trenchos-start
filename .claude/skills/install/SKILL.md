@@ -44,14 +44,21 @@ Before we start, please confirm these prerequisites:
         → Authentication → Providers → Email → uncheck "Confirm email" → Save
   3. ☐  Generated a Supabase Access Token (separate from project keys!)
         → Account icon (top right) → Account → Access Tokens → Generate new token
-  4. ☐  Have API credits / billing set up at Anthropic, FAL, and KIE
-  5. ☐  Have a Google account for a free Gemini API key (aistudio.google.com)
-  6. ☐  Have your License Key ready (from your purchase email, "TRENCHOS-…")
+  4. ☐  Raised the Supabase upload file size limit to 2 GB
+        → Storage → Settings → "Upload file size limit" → set 2 GB → Save
+  5. ☐  Have API credits / billing set up at Anthropic, FAL, and KIE
+  6. ☐  Have a Google account for a free Gemini API key (aistudio.google.com)
+  7. ☐  Have your License Key ready (from your purchase email, "TRENCHOS-…")
 
-Reply "yes" when all 6 are done.
+Reply "yes" when all 7 are done.
 ```
 
-If they say anything other than yes/done/ready, ask what's blocking and help only on that blocker. Don't continue until all six are confirmed.
+If they say anything other than yes/done/ready, ask what's blocking and help only on that blocker. Don't continue until all seven are confirmed.
+
+Item 4 matters more than it looks: the migrations raise the per-bucket limits, but the
+project-global Storage limit is a dashboard setting no migration can touch. Left at the
+default 50 MB, every larger upload (Copy Format / Creative DNA reference videos, creator
+footage) fails with a storage error that names no cause.
 
 ---
 
