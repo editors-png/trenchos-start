@@ -148,10 +148,10 @@ If the update file has `migrations: true`:
 
 2. Push to the database:
    ```bash
-   npx supabase db push
+   npx --yes supabase@2.111.0 db push
    ```
 
-3. If `db push` fails: show the error. Tell the user to check that their Supabase project is linked (`npx supabase status`) and their access token is still valid.
+3. If `db push` fails: show the error. Tell the user to check that their Supabase project is linked (`npx --yes supabase@2.111.0 status`) and their access token is still valid.
 
 ---
 

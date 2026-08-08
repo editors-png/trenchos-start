@@ -131,12 +131,14 @@ Once cloned, **everything from here happens inside `app/`.** All paths below are
 node --version              # Need ≥ 18.17
 git --version               # Need any recent version
 npx --version               # Comes with npm, sanity check
-npx --yes supabase --version  # Fetches the Supabase CLI binary — proves it runs on THIS machine NOW
+npx --yes supabase@2.111.0 --version  # Fetches the Supabase CLI binary — proves it runs on THIS machine NOW
 ```
 
-Run all four **up front**, before collecting any keys. The last one is the important one: it downloads and runs the Supabase CLI binary for this OS. If it fails here (network, permissions, unsupported arch), we find out in the first 30 seconds — not after the user has entered nine API keys. If `npx supabase --version` errors, stop and show the exact error before going further.
+Run all four **up front**, before collecting any keys. The last one is the important one: it downloads and runs the Supabase CLI binary for this OS. If it fails here (network, permissions, unsupported arch), we find out in the first 30 seconds — not after the user has entered nine API keys. If it errors, stop and show the exact error before going further.
 
-Do **not** install Supabase CLI globally — we use `npx supabase`. Only **two** prerequisites are required, and both are cross-platform: Node and Git.
+Do **not** install Supabase CLI globally — we use `npx`. Only **two** prerequisites are required, and both are cross-platform: Node and Git.
+
+**The CLI version is pinned and must stay pinned.** Every Supabase command in this skill runs `npx --yes supabase@2.111.0`. Never drop the version to a bare `npx supabase`: that resolves to whatever the registry tags latest at that minute, and a bad upstream release then breaks every new install at once — 2.112.0 (2026-08-07) shipped a date-time schema that rejects the Management API's own `+00:00` timestamps, so `supabase link` failed for every project with `failed to get api keys: SchemaError(… at [2]["inserted_at"])` (supabase/cli#6115). Same pin lives in the app's `scripts/update.mjs`; bump both together, never one alone.
 
 - Node missing or too old → install Node LTS, then restart this skill. **Windows:** https://nodejs.org LTS installer (or `winget install OpenJS.NodeJS.LTS`). **macOS:** https://nodejs.org or `brew install node`. **Linux:** distro package manager or https://nodejs.org.
 - Git missing → **Windows:** https://git-scm.com/download/win · **macOS:** `xcode-select --install` · **Linux:** distro package manager.
@@ -152,7 +154,7 @@ Working inside `app/`:
 |-------|---------|
 | `app/.env.local` exists with all 9 required keys filled | Ask: "I found an existing `.env.local`. Re-use it (recommended) or start fresh?" |
 | `app/node_modules/` exists | Skip `npm install` in Phase 5 |
-| Migrations already pushed (`npx supabase migration list --linked` once linked) | Skip `db push` in Phase 5 |
+| Migrations already pushed (`npx --yes supabase@2.111.0 migration list --linked` once linked) | Skip `db push` in Phase 5 |
 
 Required keys for the "all filled" check:
 `ANTHROPIC_API_KEY`, `FAL_API_KEY`, `KIE_API_KEY`, `GEMINI_API_KEY`, `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`
@@ -262,13 +264,13 @@ npm install
 ### 5.4 — Authenticate Supabase CLI
 Use the non-interactive `--token` flag — cross-platform, no `export` (which doesn't exist on Windows shells):
 ```bash
-npx supabase login --token <access token from Phase 3>
+npx --yes supabase@2.111.0 login --token <access token from Phase 3>
 ```
 Don't write this token to `.env.local` — it's CLI auth only.
 
 ### 5.5 — Link to the project
 ```bash
-npx supabase link --project-ref $PROJECT_REF --password <db-password>
+npx --yes supabase@2.111.0 link --project-ref $PROJECT_REF --password <db-password>
 ```
 If link fails: most common cause is wrong DB password. Re-prompt.
 
@@ -276,13 +278,13 @@ If link fails: most common cause is wrong DB password. Re-prompt.
 
 The repo ships the migrations as plaintext SQL in `supabase/migrations/`. Apply every migration to the buyer's own Supabase — this creates the schema, seed data (styles + models), and Storage buckets (buckets are created via SQL).
 
-**Skip-if-done:** if `npx supabase migration list --linked` shows everything applied, skip to 5.6b.
+**Skip-if-done:** if `npx --yes supabase@2.111.0 migration list --linked` shows everything applied, skip to 5.6b.
 
 ```bash
-npx supabase db push
+npx --yes supabase@2.111.0 db push
 ```
 Watch for:
-- `relation "..." already exists` → partially applied. Run `npx supabase migration list --linked`.
+- `relation "..." already exists` → partially applied. Run `npx --yes supabase@2.111.0 migration list --linked`.
 - Network timeout → retry once.
 - Permission errors → DB password almost certainly wrong.
 
@@ -409,9 +411,9 @@ Then confirm:
 
 1. **"Authentication failed" on clone** → token expired (~1h). Re-run Phase 0.5 for a fresh token.
 2. **"bound_to_other_project"** → license already tied to a different Supabase project. One project per license; old one auto-releases after 14 idle days.
-3. **"Migration X already exists"** → re-linked to a project that already has the schema. `npx supabase migration list --linked` to see state. Often safe to skip.
+3. **"Migration X already exists"** → re-linked to a project that already has the schema. `npx --yes supabase@2.111.0 migration list --linked` to see state. Often safe to skip.
 4. **"Cannot connect to dev server"** → is `npm run dev` still running? Restart it from `app/`.
-5. **"profiles relation does not exist"** → migration 017 didn't apply. Re-run `npx supabase db push` from `app/`.
+5. **"profiles relation does not exist"** → migration 017 didn't apply. Re-run `npx --yes supabase@2.111.0 db push` from `app/`.
 6. **First user not getting owner role** → signed up before DB was ready. SQL Editor → `UPDATE profiles SET role='owner' WHERE id = (SELECT id FROM auth.users ORDER BY created_at LIMIT 1);`
 
 ---
