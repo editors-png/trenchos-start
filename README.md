@@ -8,9 +8,23 @@ minutes.
 
 1. **Node.js** (LTS) — https://nodejs.org (download, install, done)
 2. **Claude Code** — in your terminal run:
-   ```
-   npm install -g @anthropic-ai/claude-code
-   ```
+   - **Mac / Linux:**
+     ```
+     curl -fsSL https://claude.ai/install.sh | bash
+     ```
+   - **Windows (PowerShell):**
+     ```
+     irm https://claude.ai/install.ps1 | iex
+     ```
+
+   It shows no progress while it downloads, so give it a minute. Then open a
+   **new** terminal window and run `claude --version`. If you see a version
+   number, you're set. If it says "command not found" on a Mac, run
+   `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc`
+   and try again.
+
+   Please don't use `npm install -g` or `sudo` for Claude Code. On many Macs
+   that fails with a "permission denied" (EACCES) error.
 3. A **Supabase** account (free) — https://supabase.com
 4. Your **License Key** — check your purchase email (looks like `TRENCHOS-xxxx…`)
 
